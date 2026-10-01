@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 DESAFÍO DE FE: JENGA CATÓLICO 3D ✝️✨</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #1b3b6f 0%, #6b9ac4 50%, #97d2fb 100%);
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body class="relative select-none">
+
+  <!-- Canvas 3D -->
+  <div id="canvas-container"></div>
+
+  <!-- Modal Inicial para Registrar Jugadores -->
+  <div id="setup-modal" class="fixed inset-0 bg-sky-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="bg-gradient-to-b from-sky-50 via-white to-amber-50/30 border-2 border-amber-300 rounded-3xl shadow-2xl p-6 max-w-md w-full text-center">
+      <h2 class="text-2xl font-extrabold text-sky-950 mb-2">🔥 DESAFÍO DE FE ✝️</h2>
+      <p class="text-xs text-gray-600 mb-4">Ingresa el nombre de los jugadores (mínimo 1 jugador):</p>
+      
+      <div id="players-input-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto p-1">
+        <input type="text" placeholder="Jugador 1" class="player-name-input w-full px-3 py-2 border border-sky-200 rounded-xl text-sm focus:outline-none focus:border-amber-400">
+        <input type="text" placeholder="Jugador 2" class="player-name-input w-full px-3 py-2 border border-sky-200 rounded-xl text-sm focus:outline-none focus:border-amber-400">
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <button onclick="addPlayerInput()" class="w-1/2 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold py-2 rounded-xl text-xs transition-all">
+          + Agregar Jugador
+        </button>
+        <button onclick="startGame()" class="w-1/2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2 rounded-xl shadow-md text-xs transition-all">
+          ¡Comenzar Juego! 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Encabezado con Indicador de Turno -->
+  <div class="absolute top-4 left-1/2 -translate-x-1/2 text-center pointer-events-none w-11/12 max-w-lg z-10">
+    <h1 class="text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg tracking-wide flex items-center justify-center gap-2">
+      🔥 DESAFÍO DE FE ✝️✨
+    </h1>
+    <div id="turn-banner" class="mt-2 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow-lg border border-amber-200 text-sky-950 font-bold text-xs md:text-sm">
+      Turno de: <span id="current-player-name" class="text-amber-600 font-extrabold">--</span>
+    </div>
+  </div>
+
+  <!-- Modal de Pregunta -->
+  <div id="quiz-modal" class="hidden fixed inset-0 bg-sky-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="bg-gradient-to-b from-sky-50 via-white to-amber-50/30 border-2 border-amber-300 rounded-3xl shadow-2xl p-6 max-w-md w-full relative transform transition-all scale-100">
+      
+      <!-- Categoría y Detalle -->
+      <div class="flex items-center justify-between mb-3 border-b border-sky-100 pb-2">
+        <span id="modal-category" class="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+          Categoría
+        </span>
+        <span id="modal-piece-num" class="text-xs font-semibold text-sky-600">
+          Pieza N° 1
+        </span>
+      </div>
+      
+      <h2 id="modal-question" class="text-base md:text-lg font-bold text-sky-950 text-center mb-5 leading-snug">
+        ¿Pregunta?
+      </h2>
+
+      <!-- Opciones de Respuesta -->
+      <div id="options-container" class="grid grid-cols-1 gap-2.5"></div>
+
+      <!-- Feedback de Respuesta -->
+      <div id="feedback" class="hidden mt-4 p-3 rounded-2xl text-center font-semibold text-xs md:text-sm"></div>
+
+      <!-- Botón Continuar -->
+      <button id="btn-next" onclick="closeModal()" class="hidden mt-4 w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all text-sm">
+        Siguiente Turno ✨
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal de Torre Caída / Game Over -->
+  <div id="gameover-modal" class="hidden fixed inset-0 bg-sky-950/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="bg-gradient-to-b from-amber-50 to-white border-2 border-amber-400 rounded-3xl shadow-2xl p-6 max-w-sm w-full text-center">
+      <div class="text-4xl mb-2">💥 ☁️ ✝️</div>
+      <h2 class="text-xl font-extrabold text-sky-950 mb-2">¡La Torre Celestial ha Caído!</h2>
+      <p id="gameover-message" class="text-xs text-gray-600 mb-6">
+        ¡Un nivel se quedó sin soporte! Buen intento en este reto de conocimientos y reflexión.
+      </p>
+      <button onclick="resetGame()" class="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2.5 rounded-xl shadow-lg transition-all text-sm">
+        Volver a Reconstruir 🔄
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- LÓGICA DE JUGADORES ---
+    let players = [];
+    let currentPlayerIndex = 0;
+
+    function addPlayerInput() {
+      const container = document.getElementById('players-input-list');
+      const count = container.querySelectorAll('input').length + 1;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = `Jugador ${count}`;
+      input.className = 'player-name-input w-full px-3 py-2 border border-sky-200 rounded-xl text-sm focus:outline-none focus:border-amber-400';
+      container.appendChild(input);
+    }
+
+    function startGame() {
+      const inputs = document.querySelectorAll('.player-name-input');
+      players = [];
+      inputs.forEach((input, idx) => {
+        const val = input.value.trim();
+        if (val !== "") {
+          players.push(val);
+        } else {
+          players.push(`Jugador ${idx + 1}`);
+        }
+      });
+
+      if (players.length === 0) players = ["Jugador 1"];
+
+      currentPlayerIndex = 0;
+      updateTurnBanner();
+      document.getElementById('setup-modal').classList.add('hidden');
+    }
+
+    function updateTurnBanner() {
+      if (players.length > 0) {
+        document.getElementById('current-player-name').innerText = players[currentPlayerIndex];
+      }
+    }
+
+    function nextTurn() {
+      if (players.length > 0) {
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+        updateTurnBanner();
+      }
+    }
+
+    // --- BANCO DE 36 PREGUNTAS CATÓLICAS Y REFLEXIVAS ---
+    const preguntas = [
+      // CATEGORÍA 1: LA BIBLIA
+      { cat: "La Biblia 📖", q: "¿Qué libro narra la creación del mundo?", options: ["Génesis", "Éxodo", "Salmos", "Mateo"], correct: 0 },
+      { cat: "La Biblia 📖", q: "¿Quién construyó el arca por mandato de Dios?", options: ["Abraham", "Noé", "Moisés", "David"], correct: 1 },
+      { cat: "La Biblia 📖", q: "¿Cuál es el primer libro de la Biblia?", options: ["Éxodo", "Mateo", "Génesis", "Apocalipsis"], correct: 2 },
+      { cat: "La Biblia 📖", q: "¿Quién recibió de Dios las tablas de los Diez Mandamientos?", options: ["Pedro", "Moisés", "Pablo", "Juan"], correct: 1 },
+      { cat: "La Biblia 📖", q: "¿Cuál es el último libro de la Biblia?", options: ["Hechos", "Romanos", "Apocalipsis", "Génesis"], correct: 2 },
+      { cat: "La Biblia 📖", q: "¿Quién fue tragado por un gran pez?", options: ["Jonás", "Elías", "Isaías", "Samuel"], correct: 0 },
+      { cat: "La Biblia 📖", q: "¿Cuántos Evangelios hay en el Nuevo Testamento?", options: ["2", "3", "4", "5"], correct: 2 },
+      { cat: "La Biblia 📖", q: "¿Quién bautizó a Jesús en el río Jordán?", options: ["San Pedro", "Juan el Bautista", "San Pablo", "Santiago"], correct: 1 },
+      { cat: "La Biblia 📖", q: "¿Qué oración enseñó Jesús a sus discípulos?", options: ["Ave María", "Credo", "Padre Nuestro", "Salve"], correct: 2 },
+
+      // CATEGORÍA 2: LOS 10 MANDAMIENTOS
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Cuál es el primer mandamiento?", options: ["No matarás", "Amarás a Dios sobre todas las cosas", "No robarás", "Honrarás a tus padres"], correct: 1 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento nos pide respetar a nuestros padres?", options: ["Cuarto", "Quinto", "Sexto", "Séptimo"], correct: 0 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento prohíbe quitar la vida a otra persona?", options: ["Segundo", "Tercero", "Quinto", "Octavo"], correct: 2 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento nos enseña a decir siempre la verdad?", options: ["Octavo", "Noveno", "Segundo", "Sexto"], correct: 0 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento nos invita a santificar las fiestas?", options: ["Primero", "Tercero", "Quinto", "Décimo"], correct: 1 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento prohíbe robar?", options: ["Sexto", "Séptimo", "Octavo", "Noveno"], correct: 1 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Dónde recibió Moisés los Diez Mandamientos?", options: ["Monte Sinaí", "Monte Tabor", "Monte de los Olivos", "Monte Carmelo"], correct: 0 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué nos enseñan los mandamientos principalmente?", options: ["A vivir según el amor de Dios", "A ganar premios", "A evitar estudiar", "A ser superiores a otros"], correct: 0 },
+      { cat: "Los 10 Mandamientos ✝️", q: "¿Qué mandamiento nos llama a no desear injustamente los bienes de los demás?", options: ["Cuarto", "Sexto", "Noveno y décimo", "Segundo"], correct: 2 },
+
+      // CATEGORÍA 3: LOS 7 SACRAMENTOS
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Cuántos sacramentos reconoce la Iglesia Católica?", options: ["5", "6", "7", "10"], correct: 2 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento nos incorpora a la comunidad cristiana?", options: ["Bautismo", "Matrimonio", "Confirmación", "Orden"], correct: 0 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento recibimos al participar de la Eucaristía?", options: ["Reconciliación", "Comunión", "Unción", "Matrimonio"], correct: 1 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento fortalece nuestra fe con el don del Espíritu Santo?", options: ["Confirmación", "Bautismo", "Matrimonio", "Unción"], correct: 0 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento está relacionado con el perdón de los pecados?", options: ["Orden", "Reconciliación", "Matrimonio", "Confirmación"], correct: 1 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento reciben quienes se unen en matrimonio ante Dios?", options: ["Matrimonio", "Bautismo", "Eucaristía", "Unción"], correct: 0 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento se administra especialmente a personas enfermas o en situación de enfermedad grave?", options: ["Confirmación", "Unción de los Enfermos", "Orden", "Bautismo"], correct: 1 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Qué sacramento está relacionado con el ministerio de obispos, sacerdotes y diáconos?", options: ["Orden Sacerdotal", "Eucaristía", "Reconciliación", "Matrimonio"], correct: 0 },
+      { cat: "Los 7 Sacramentos 🕊️", q: "¿Cuál de estos grupos contiene solo sacramentos?", options: ["Bautismo, Confirmación y Eucaristía", "Oración, Biblia y Rosario", "Misa, Biblia y Mandamientos", "Fe, esperanza y caridad"], correct: 0 },
+
+      // CATEGORÍA 4: VIDA CRISTIANA
+      { cat: "Vida Cristiana ❤️", q: "¿Cuál es el mandamiento principal que enseñó Jesús?", options: ["Amar a Dios y al prójimo", "Buscar riquezas", "Ser famoso", "Evitar a los demás"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué valor cristiano nos ayuda a reconocer y agradecer lo que recibimos?", options: ["Orgullo", "Gratitud", "Envidia", "Indiferencia"], correct: 1 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué actitud demuestra una persona que sabe perdonar?", options: ["Guardar rencor", "Buscar venganza", "Liberarse del resentimiento", "Ignorar siempre a los demás"], correct: 2 },
+      { cat: "Vida Cristiana ❤️", q: "¿Cuál de estas acciones refleja mejor la solidaridad?", options: ["Ayudar a quien lo necesita", "Pensar solo en uno mismo", "Burlarse de un compañero", "Rechazar a los demás"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué significa tener fe en Dios?", options: ["Confiar en Él y seguir su camino", "No hacer nada", "Tener miedo siempre", "Pensar solo en uno mismo"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Por qué es importante orar?", options: ["Para comunicarnos con Dios", "Para obtener premios", "Para evitar responsabilidades", "Para competir con otros"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué actitud ayuda a construir una buena convivencia?", options: ["Respeto", "Burla", "Violencia", "Egoísmo"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué nos enseña Jesús con el ejemplo del Buen Samaritano?", options: ["A ayudar y tener compasión", "A ignorar al necesitado", "A buscar reconocimiento", "A competir con los demás"], correct: 0 },
+      { cat: "Vida Cristiana ❤️", q: "¿Qué virtud nos ayuda a mantenernos firmes ante las dificultades?", options: ["Esperanza", "Envidia", "Orgullo", "Rencor"], correct: 0 }
+    ];
+
+    // --- ESCENA Y CÁMARA ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2c5282);
+    scene.fog = new THREE.FogExp2(0x2c5282, 0.008);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(13, 11, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 4.5, 0);
+
+    // --- ILUMINACIÓN ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+    sunLight.position.set(12, 22, 10);
+    sunLight.castShadow = true;
+    scene.add(sunLight);
+
+    // --- ESTRELLAS AL FONDO ---
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 200;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i += 3) {
+      starPositions[i] = (Math.random() - 0.5) * 80;
+      starPositions[i + 1] = Math.random() * 40 + 5;
+      starPositions[i + 2] = (Math.random() - 0.5) * 80;
+    }
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.35, transparent: true, opacity: 0.85 });
+    const starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // --- PLATAFORMA DORADA ---
+    const platformGeo = new THREE.CylinderGeometry(4.2, 4.8, 0.8, 32);
+    const platformMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.25, metalness: 0.6 });
+    const platform = new THREE.Mesh(platformGeo, platformMat);
+    platform.position.y = -0.4;
+    platform.receiveShadow = true;
+    scene.add(platform);
+
+    // --- NUBES FLOTANTES ---
+    const cloudsGroup = new THREE.Group();
+    function createCloud(x, y, z, scale = 1) {
+      const cloud = new THREE.Group();
+      const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
+      const numSpheres = 6 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < numSpheres; i++) {
+        const geo = new THREE.SphereGeometry((0.6 + Math.random() * 0.5) * scale, 16, 16);
+        const mesh = new THREE.Mesh(geo, cloudMat);
+        mesh.position.set((Math.random() - 0.5) * 2 * scale, (Math.random() - 0.5) * 0.7 * scale, (Math.random() - 0.5) * 2 * scale);
+        cloud.add(mesh);
+      }
+      cloud.position.set(x, y, z);
+      cloudsGroup.add(cloud);
+    }
+    createCloud(-4.5, 0, -4.5, 1.2); createCloud(4.5, 0, 4.5, 1.2);
+    createCloud(-4.5, 0, 4.5, 1.2); createCloud(4.5, 0, -4.5, 1.2);
+    createCloud(-15, 8, -12, 2.5); createCloud(16, 12, -15, 3.0);
+    createCloud(-12, 16, 10, 2.2); createCloud(14, 6, 12, 2.0);
+    createCloud(0, 20, -20, 3.5);
+    scene.add(cloudsGroup);
+
+    // --- CONSTRUCCIÓN DE LA TORRE DE JENGA ---
+    const blockWidth = 3;
+    const blockHeight = 0.6;
+    const blockDepth = 1;
+    let blocksGroup = new THREE.Group();
+    scene.add(blocksGroup);
+
+    let blocks = [];
+    let isFallen = false; // Estado del desmoronamiento
+    let wobbleIntensity = 0; // Intensidad del tambaleo
+    let wobbleSpeed = 0;
+
+    const blockMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0xF3E5AB, roughness: 0.4 }),
+      new THREE.MeshStandardMaterial({ color: 0xE2BA6E, roughness: 0.4 }),
+      new THREE.MeshStandardMaterial({ color: 0xD4A373, roughness: 0.4 })
+    ];
+
+    function buildTower() {
+      // Limpiar si ya había bloques
+      scene.remove(blocksGroup);
+      blocksGroup = new THREE.Group();
+      scene.add(blocksGroup);
+      blocks = [];
+      isFallen = false;
+      wobbleIntensity = 0;
+
+      let qIdx = 0;
+      for (let layer = 0; layer < 12; layer++) {
+        const isEven = layer % 2 === 0;
+        const y = layer * blockHeight + blockHeight / 2;
+        const currentMat = blockMaterials[layer % 3];
+
+        for (let i = 0; i < 3; i++) {
+          const offset = (i - 1) * (blockDepth + 0.05);
+          const geometry = new THREE.BoxGeometry(
+            isEven ? blockWidth : blockDepth,
+            blockHeight,
+            isEven ? blockDepth : blockWidth
+          );
+
+          const mesh = new THREE.Mesh(geometry, currentMat);
+          
+          if (isEven) {
+            mesh.position.set(0, y, offset);
+          } else {
+            mesh.position.set(offset, y, 0);
+          }
+
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+
+          mesh.userData = {
+            id: qIdx,
+            layer: layer,
+            isEven: isEven,
+            indexInLayer: i,
+            questionData: preguntas[qIdx],
+            removed: false,
+            vel: new THREE.Vector3(0, 0, 0),
+            rotVel: new THREE.Vector3(0, 0, 0)
+          };
+
+          blocks.push(mesh);
+          blocksGroup.add(mesh);
+          qIdx++;
+        }
+      }
+    }
+
+    buildTower();
+
+    // --- RAYCASTING (Clics) ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener('pointerdown', onPointerDown);
+
+    function onPointerDown(event) {
+      if (isFallen) return;
+      if (!document.getElementById('quiz-modal').classList.contains('hidden')) return;
+      if (!document.getElementById('setup-modal').classList.contains('hidden')) return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(blocks);
+
+      if (intersects.length > 0) {
+        const clickedBlock = intersects[0].object;
+        if (!clickedBlock.userData.removed) {
+          openQuestion(clickedBlock);
+        }
+      }
+    }
+
+    // --- LÓGICA DE PREGUNTAS Y ESTABILIDAD ---
+    let currentBlock = null;
+
+    function openQuestion(block) {
+      currentBlock = block;
+      const data = block.userData.questionData;
+
+      document.getElementById('modal-category').innerText = data.cat;
+      document.getElementById('modal-piece-num').innerText = `Pieza N° ${block.userData.id + 1}`;
+      document.getElementById('modal-question').innerText = data.q;
+
+      const optionsContainer = document.getElementById('options-container');
+      optionsContainer.innerHTML = '';
+
+      document.getElementById('feedback').classList.add('hidden');
+      document.getElementById('btn-next').classList.add('hidden');
+
+      data.options.forEach((optionText, index) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left bg-sky-50 hover:bg-amber-100/60 border border-sky-200/80 text-sky-950 font-medium py-2.5 px-4 rounded-xl transition-all shadow-sm hover:shadow flex items-center justify-between text-xs md:text-sm";
+        btn.innerHTML = `<span>${optionText}</span> <span class="text-xs bg-sky-200/70 text-sky-900 font-bold px-2 py-0.5 rounded-full">${String.fromCharCode(65 + index)}</span>`;
+        btn.onclick = () => checkAnswer(index, data.correct);
+        optionsContainer.appendChild(btn);
+      });
+
+      document.getElementById('quiz-modal').classList.remove('hidden');
+    }
+
+    function checkAnswer(selected, correct) {
+      const feedback = document.getElementById('feedback');
+      const optionsContainer = document.getElementById('options-container');
+      
+      Array.from(optionsContainer.children).forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === correct) {
+          btn.classList.add('bg-emerald-200', 'border-emerald-400', 'text-emerald-950');
+        } else if (idx === selected) {
+          btn.classList.add('bg-rose-100', 'border-rose-300', 'text-rose-900');
+        }
+      });
+
+      if (selected === correct) {
+        feedback.className = "mt-4 p-3 rounded-2xl text-center font-semibold text-xs md:text-sm bg-emerald-100/90 text-emerald-900 border border-emerald-300 shadow-sm";
+        feedback.innerHTML = `
+          ✨ <b>¡Respuesta Correcta!</b><br>
+          <span class="text-xs font-normal">Sugerencia Celestial: Ganaste una <b>"Gracia Divina"</b> para apoyar a un compañero.</span>
+        `;
+      } else {
+        feedback.className = "mt-4 p-3 rounded-2xl text-center font-semibold text-xs md:text-sm bg-amber-100/90 text-amber-900 border border-amber-300 shadow-sm";
+        feedback.innerHTML = `
+          ☁️ <b>¡Buen intento!</b><br>
+          <span class="text-xs font-normal">Dinámica / Penitencia: Comparte con el grupo una <b>breve frase de agradecimiento</b>.</span>
+        `;
+      }
+
+      feedback.classList.remove('hidden');
+      document.getElementById('btn-next').classList.remove('hidden');
+
+      if (currentBlock && !currentBlock.userData.removed) {
+        currentBlock.userData.removed = true;
+        animateBlockRemoval(currentBlock);
+        
+        // Evaluar tambaleo o caída
+        evaluateStability(currentBlock.userData.layer);
+      }
+    }
+
+    // ANIMACIÓN DE RETIRO
+    function animateBlockRemoval(block) {
+      let step = 0;
+      const isEven = block.userData.isEven;
+
+      const animation = setInterval(() => {
+        step += 1;
+        if (isEven) {
+          block.position.x += 0.15;
+        } else {
+          block.position.z += 0.15;
+        }
+        block.position.y += 0.04;
+        block.rotation.y += 0.02;
+
+        block.material = block.material.clone();
+        block.material.transparent = true;
+        block.material.opacity = Math.max(0, 1 - step / 25);
+
+        if (step >= 25) {
+          clearInterval(animation);
+          block.visible = false;
+        }
+      }, 25);
+    }
+
+    // EVALUAR ESTABILIDAD Y DESMORONAMIENTO
+    function evaluateStability(removedLayer) {
+      // Contar cuántos bloques quedan en la capa afectada
+      const layerBlocks = blocks.filter(b => b.userData.layer === removedLayer && !b.userData.removed);
+
+      // SI SE QUITAN LOS 3 BLOQUES DE UNA CAPA -> LA TORRE SE CAEEEEE
+      if (layerBlocks.length === 0) {
+        setTimeout(triggerCollapse, 600);
+        return;
+      }
+
+      // Si quedan 1 o 2 bloques -> Aumenta el TAMBALEO
+      const totalRemoved = blocks.filter(b => b.userData.removed).length;
+      wobbleIntensity = Math.min(0.12, 0.015 + (totalRemoved * 0.003));
+    }
+
+    // EFECTO DE DESMORONAMIENTO (COLLAPSE)
+    function triggerCollapse() {
+      if (isFallen) return;
+      isFallen = true;
+
+      // Asignar velocidades aleatorias de caída a las maderas restantes
+      blocks.forEach(block => {
+        if (!block.userData.removed) {
+          block.userData.vel.set(
+            (Math.random() - 0.5) * 0.25,
+            Math.random() * 0.1 + 0.05,
+            (Math.random() - 0.5) * 0.25
+          );
+          block.userData.rotVel.set(
+            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.2
+          );
+        }
+      });
+
+      // Mostrar modal de Game Over tras la caída indicando a quién le cayó la torre
+      setTimeout(() => {
+        const activePlayer = players[currentPlayerIndex] || "El jugador";
+        document.getElementById('gameover-message').innerHTML = `¡Un nivel se quedó sin soporte! La torre cayó durante el turno de <b>${activePlayer}</b>.`;
+        document.getElementById('gameover-modal').classList.remove('hidden');
+      }, 1800);
+    }
+
+    function closeModal() {
+      document.getElementById('quiz-modal').classList.add('hidden');
+      if (!isFallen) {
+        nextTurn();
+      }
+    }
+
+    function resetGame() {
+      document.getElementById('gameover-modal').classList.add('hidden');
+      document.getElementById('setup-modal').classList.remove('hidden');
+      buildTower();
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // BUCLE DE ANIMACIÓN Y FÍSICAS
+    let time = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      time += 0.03;
+
+      // 1. EFECTO DE TAMBALEO EN LA TORRE (si no ha caído)
+      if (!isFallen && wobbleIntensity > 0) {
+        blocksGroup.rotation.z = Math.sin(time * 2) * wobbleIntensity;
+        blocksGroup.rotation.x = Math.cos(time * 1.5) * (wobbleIntensity * 0.7);
+      }
+
+      // 2. SIMULACIÓN DE FÍSICA SI OCURRE EL DESMORONAMIENTO
+      if (isFallen) {
+        blocks.forEach(block => {
+          if (!block.userData.removed) {
+            // Aplicar Gravedad
+            block.userData.vel.y -= 0.015;
+
+            // Actualizar posiciones y rotaciones
+            block.position.add(block.userData.vel);
+            block.rotation.x += block.userData.rotVel.x;
+            block.rotation.y += block.userData.rotVel.y;
+            block.rotation.z += block.userData.rotVel.z;
+
+            // Colisión con la plataforma dorada (Piso)
+            if (block.position.y <= 0.3) {
+              block.position.y = 0.3;
+              block.userData.vel.set(0, 0, 0); // Detener
+              block.userData.rotVel.set(0, 0, 0);
+            }
+          }
+        });
+      }
+
+      // Movimiento de nubes
+      cloudsGroup.children.forEach((cloud, index) => {
+        cloud.position.y += Math.sin(time * 0.5 + index) * 0.002;
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
